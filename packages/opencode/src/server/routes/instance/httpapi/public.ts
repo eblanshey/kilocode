@@ -1,5 +1,6 @@
 import { OpenApi } from "effect/unstable/httpapi"
 import { matchLegacyKiloOpenApi } from "@/kilocode/server/httpapi/public" // kilocode_change
+import * as KiloServer from "@/kilocode/server/server" // kilocode_change
 import { OpenCodeHttpApi } from "./api"
 
 type OpenApiParameter = {
@@ -290,6 +291,11 @@ function applyLegacySchemaOverrides(spec: OpenApiSpec) {
   const model = schemas.ProviderConfig?.properties?.models?.additionalProperties
   const variants = typeof model === "object" ? model.properties?.variants?.additionalProperties : undefined
   if (variants && typeof variants === "object") variants.additionalProperties = {}
+  // kilocode_change start - preserve model reset sentinels in indexing config patches
+  const indexing = schemas.IndexingConfig?.properties
+  if (indexing?.model) indexing.model = nullable(indexing.model)
+  if (indexing?.dimension) indexing.dimension = nullable(indexing.dimension)
+  // kilocode_change end
   const syncInfo = schemas.SyncEventSessionUpdated?.properties?.data?.properties?.info
   if (syncInfo?.properties) makePropertiesNullable(syncInfo.properties)
 }
@@ -544,9 +550,9 @@ function pathParameterSchema(route: string, name: string) {
 
 export const PublicApi = OpenCodeHttpApi.annotateMerge(
   OpenApi.annotations({
-    title: "opencode",
+    title: KiloServer.DOC_TITLE, // kilocode_change
     version: "1.0.0",
-    description: "opencode api",
+    description: KiloServer.DOC_DESCRIPTION, // kilocode_change
     transform: matchLegacyOpenApi,
   }),
 )

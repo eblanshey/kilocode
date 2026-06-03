@@ -33,6 +33,20 @@ object UiStyle {
         fun component() = com.intellij.util.ui.JBValue.UIInteger("Component.arc", 8).get()
     }
 
+    /** Platform balloon styling used by lightweight contextual overlays. */
+    object Balloon {
+        fun bg(): Color = UIUtil.getPanelBackground()
+
+        fun border(): Color = JBUI.CurrentTheme.Popup.borderColor(true)
+
+        /** New UI parameter-info balloon insets: symmetric vertical padding with wider sides. */
+        fun insets() = JBUI.insets(6, 12, 6, 12)
+
+        fun pointer() = JBUI.size(16, 8)
+
+        fun arc() = JBUI.scale(8)
+    }
+
     /** Theme-aware colors and color math used by multiple UI surfaces. */
     object Colors {
         fun bg(): Color = UIUtil.getPanelBackground()
@@ -69,6 +83,26 @@ object UiStyle {
 
         /** Filled badge text color paired with [badgeBg]. */
         fun badgeFg(): Color = JBColor(Color.BLACK, UIUtil.getLabelForeground())
+
+        fun runningBadgeBg(): Color = JBColor.namedColor(
+            "Kilo.History.runningBadgeBackground",
+            JBColor(0xF5C542, 0x7A5A00),
+        )
+
+        fun runningBadgeFg(): Color = JBColor.namedColor(
+            "Kilo.History.runningBadgeForeground",
+            JBColor(Color.BLACK, Color.WHITE),
+        )
+
+        fun activityBadgeBg(): Color = JBColor.namedColor(
+            "Kilo.History.activityBadgeBackground",
+            JBUI.CurrentTheme.Link.Foreground.ENABLED,
+        )
+
+        fun activityBadgeFg(): Color = JBColor.namedColor(
+            "Kilo.History.activityBadgeForeground",
+            Color.WHITE,
+        )
 
         /** Card border color shared across profile cards. */
         fun cardBorder(): Color = JBColor.namedColor("Component.borderColor", JBColor.border())
