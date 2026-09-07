@@ -404,9 +404,22 @@ export const KiloTheme = {
 } as unknown as ThemeRegistrationResolved
 // kilocode_change end
 
-// kilocode_change start: double-dollar-only math rules for marked.
+// kilocode_change start: double-dollar and guarded single-dollar math rules for marked.
 const BLOCK = /^\$\$\n((?:\\[^]|[^\\])+?)\n\$\$(?:\n|$)/
 const INLINE = /^\$\$(?!\$)((?:\\.|[^\\\n])*?(?:\\.|[^\\\n$]))\$\$/
+// Guarded single-dollar inline math, following pandoc's tex_math_dollars rules
+// (https://pandoc.org/MANUAL.html#extension-tex_math_dollars): the opening $
+// must have a non-space to its right, the closing $ a non-space to its left and
+// never a digit to its right, and \$ escapes the delimiter. Content cannot span
+// newlines. On top of pandoc, content that is only a bare money amount stays
+// plain text unless it carries LaTeX structure (\cmd, ^, _, {}) — pandoc's
+// rules alone still garble enclosing-$ prices such as "a $10$-off coupon".
+const SINGLE = /^(?<![$\\])\$(?!\s)((?:\\.|[^\\\n$])+?)(?<!\s)\$(?!\d)(?!\$)/
+const SINGLE_G = new RegExp(SINGLE.source, "g")
+const OPENER = /(?<![$\\])\$/
+const MONEY = /^[\d,.]+\s*[KkMmBb%]?\s*[+\-*/]?[KkMmBb%]?$/
+const LATEX = /[\^_{}\\]/
+const isMath = (content: string) => !MONEY.test(content) || LATEX.test(content)
 // kilocode_change end
 
 // kilocode_change start: isolate KaTeX from the markdown root dir=auto.
@@ -434,10 +447,6 @@ function renderMathInText(text: string): string {
     }
   })
 
-  // kilocode_change: removed single-dollar inline math ($...$) rendering.
-  // Single $ is far more common as a currency symbol in agent responses
-  // (e.g. $93K, $307K) than as a LaTeX delimiter. Upstream's \(...\)
-  // delimiter remains supported because it is unambiguous.
   // Inline math: \(...\)
   const inlineMathRegex = /\\\(((?:\\.|[^\\\n])*?)\\\)/g
   result = result.replace(inlineMathRegex, (_, math) => {
@@ -451,6 +460,20 @@ function renderMathInText(text: string): string {
     }
   })
 
+  // kilocode_change start: guarded single-dollar inline math ($...$), money-safe.
+  result = result.replace(SINGLE_G, (raw, math: string) => {
+    if (!isMath(math)) return raw
+    try {
+      return renderKatex(math, {
+        displayMode: false,
+        throwOnError: false,
+      })
+    } catch {
+      return raw
+    }
+  })
+  // kilocode_change end
+
   return result
 }
 
@@ -461,19 +484,34 @@ const inlineKatexExtension: MarkedExtension = {
       name: "inlineKatex",
       level: "inline",
       start(src) {
+        // kilocode_change start: scan for guarded $ openers as well as \(
         const index = src.indexOf("\\(")
-        if (index === -1) return
-        return index
+        const dollar = src.search(OPENER)
+        if (index === -1) return dollar === -1 ? undefined : dollar
+        if (dollar === -1 || dollar > index) return index
+        return dollar
+        // kilocode_change end
       },
       tokenizer(src) {
         const match = src.match(inlineMathRegex)
-        if (!match) return
-        return {
-          type: "inlineKatex",
-          raw: match[0],
-          text: match[1].trim(),
-          displayMode: false,
-        }
+        if (match)
+          return {
+            type: "inlineKatex",
+            raw: match[0],
+            text: match[1].trim(),
+            displayMode: false,
+          }
+        // kilocode_change start: guarded single-dollar inline math ($...$), money-safe.
+        const single = src.match(SINGLE)
+        if (single && isMath(single[1]))
+          return {
+            type: "inlineKatex",
+            raw: single[0],
+            text: single[1].trim(),
+            displayMode: false,
+          }
+        return
+        // kilocode_change end
       },
       renderer: renderKatexToken,
     },
@@ -787,11 +825,11 @@ export const createMarkedParser = (props: { nativeParser?: NativeMarkdownParser 
       // kilocode_change end
     },
     inlineKatexExtension,
-    // kilocode_change start: enable double-dollar math without single-dollar math.
-    // Single $ is far more common as a currency symbol in agent responses
-    // (e.g. $93K, $307K) than as a LaTeX delimiter. Avoid registering the
-    // marked-katex-extension's single-dollar tokenizer because Marked falls
-    // through to later tokenizers when an override returns undefined.
+    // kilocode_change start: double-dollar math ($$...$$, display mode) registered
+    // here; single-dollar math is handled by the guarded tokenizer in
+    // inlineKatexExtension above. Avoid registering the marked-katex-extension's
+    // single-dollar tokenizer: Marked falls through to later tokenizers when an
+    // override returns undefined, but its own $ rules are not money-safe.
     {
       extensions: [
         {
