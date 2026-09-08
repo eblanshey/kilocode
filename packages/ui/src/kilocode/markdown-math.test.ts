@@ -42,6 +42,12 @@ describe("Inline dollar math ($...$)", () => {
     expect(html).toContain("$10M")
   })
 
+  test("currency opener does not swallow later math on the line", async () => {
+    const html = await parse("I paid $5 and want $x^2$ growth")
+    expect(spans(html)).toBe(1)
+    expect(html).toContain("$5")
+  })
+
   test("keeps $$ block math as display mode", async () => {
     const html = await parse("text\n\n$$\n\\phi = 1\n$$\n\nmore")
     expect(spans(html)).toBe(1)
@@ -50,5 +56,15 @@ describe("Inline dollar math ($...$)", () => {
 
   test("keeps mid-line $$...$$ rendering", async () => {
     expect(spans(await parse("mid-line $$\\phi$$ double"))).toBe(1)
+  })
+
+  // The native-parser path post-processes HTML with a regex pass instead of the
+  // marked tokenizer; it needs the same guards (unglobal, unanchored).
+  test("renders inline math on the native-parser path", async () => {
+    const native = async (md: string) => `<p>${md.replace(/</g, "&lt;")}</p>`
+    const parser = createMarkedParser({ nativeParser: native })
+    const html = String(await parser.parse("where $\\phi$ is golden and $x^2$ grows"))
+    expect(spans(html)).toBe(2)
+    expect(html).not.toContain("$\\phi$")
   })
 })

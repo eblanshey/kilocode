@@ -414,8 +414,9 @@ const INLINE = /^\$\$(?!\$)((?:\\.|[^\\\n])*?(?:\\.|[^\\\n$]))\$\$/
 // newlines. On top of pandoc, content that is only a bare money amount stays
 // plain text unless it carries LaTeX structure (\cmd, ^, _, {}) — pandoc's
 // rules alone still garble enclosing-$ prices such as "a $10$-off coupon".
-const SINGLE = /^(?<![$\\])\$(?!\s)((?:\\.|[^\\\n$])+?)(?<!\s)\$(?!\d)(?!\$)/
-const SINGLE_G = new RegExp(SINGLE.source, "g")
+const SINGLE_SRC = String.raw`(?<![$\\])\$(?!\s)((?:\\.|[^\\\n$])+?)(?<!\s)\$(?!\d)(?!\$)`
+const SINGLE = new RegExp(`^${SINGLE_SRC}`)
+const SINGLE_G = new RegExp(SINGLE_SRC, "g")
 const OPENER = /(?<![$\\])\$/
 const MONEY = /^[\d,.]+\s*[KkMmBb%]?\s*[+\-*/]?[KkMmBb%]?$/
 const LATEX = /[\^_{}\\]/
